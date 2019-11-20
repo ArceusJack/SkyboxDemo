@@ -1,0 +1,1028 @@
+<html>
+  <head>
+    <style>
+      #texture-canvas {
+    position: fixed;
+    left: 16px;
+    top: 16px;
+    width: 320px;
+    height: 240px;
+    border: 1px solid white;
+    box-sizing: border-box;
+    display: none;
+}
+
+#texture-left {
+    top: 95px;
+    left: 16px;
+}
+
+#texture-right {
+    top: 95px;
+    left: 174px;
+}
+
+#texture-top {
+    top: 16px;
+    left: 95px;
+}
+
+#texture-bottom {
+    top: 174px;
+    left: 95px;
+}
+
+#texture-front {
+    top: 95px;
+    left: 95px;
+}
+
+#texture-back {
+    top: 95px;
+    left: 253px;
+}
+
+.texture {
+    border: 1px solid white;
+    position: fixed;
+    width: 80px;
+    height: 80px;
+    box-sizing: border-box;
+}
+    </style>
+  </head>
+<body>
+  <canvas id="texture-canvas" ></canvas>
+  <canvas id="texture-left"   class="texture"></canvas>
+        <canvas id="texture-right"  class="texture"></canvas>
+        <canvas id="texture-top"    class="texture"></canvas>
+        <canvas id="texture-bottom" class="texture"></canvas>
+        <canvas id="texture-front"  class="texture"></canvas>
+        <canvas id="texture-back"   class="texture"></canvas>
+  <script type="x-shader/x-vertex" id="Vertex">
+    precision highp float;
+
+    uniform mat4 uModel;
+    uniform mat4 uView;
+    uniform mat4 uProjection;
+
+    //attribute vec3 aPosition;
+    varying vec3 pos;
+
+    void main() {
+        gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1);
+        pos = (modelMatrix * vec4(position, 1)).xyz;
+    }
+  </script>
+  <script type="x-shader/x-fragment" id="NebulaFragment">
+    uniform float u_time;
+      uniform vec2 u_resolution;
+
+      uniform vec3 uColor;
+      uniform vec3 uOffset;
+      uniform float uScale;
+      uniform float uIntensity;
+      uniform float uFalloff;
+
+      varying vec3 pos;
+
+      vec4 mod289(vec4 x)
+      {
+        return x - floor(x * (1.0 / 289.0)) * 289.0;
+      }
+
+      vec4 permute(vec4 x)
+      {
+        return mod289(((x*34.0)+1.0)*x);
+      }
+
+      vec4 taylorInvSqrt(vec4 r)
+      {
+        return 1.79284291400159 - 0.85373472095314 * r;
+      }
+
+      vec4 fade(vec4 t) {
+        return t*t*t*(t*(t*6.0-15.0)+10.0);
+      }
+
+      // Classic Perlin noise
+      float cnoise(vec4 P)
+      {
+        vec4 Pi0 = floor(P); // Integer part for indexing
+        vec4 Pi1 = Pi0 + 1.0; // Integer part + 1
+        Pi0 = mod289(Pi0);
+        Pi1 = mod289(Pi1);
+        vec4 Pf0 = fract(P); // Fractional part for interpolation
+        vec4 Pf1 = Pf0 - 1.0; // Fractional part - 1.0
+        vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+        vec4 iy = vec4(Pi0.yy, Pi1.yy);
+        vec4 iz0 = vec4(Pi0.zzzz);
+        vec4 iz1 = vec4(Pi1.zzzz);
+        vec4 iw0 = vec4(Pi0.wwww);
+        vec4 iw1 = vec4(Pi1.wwww);
+
+        vec4 ixy = permute(permute(ix) + iy);
+        vec4 ixy0 = permute(ixy + iz0);
+        vec4 ixy1 = permute(ixy + iz1);
+        vec4 ixy00 = permute(ixy0 + iw0);
+        vec4 ixy01 = permute(ixy0 + iw1);
+        vec4 ixy10 = permute(ixy1 + iw0);
+        vec4 ixy11 = permute(ixy1 + iw1);
+
+        vec4 gx00 = ixy00 * (1.0 / 7.0);
+        vec4 gy00 = floor(gx00) * (1.0 / 7.0);
+        vec4 gz00 = floor(gy00) * (1.0 / 6.0);
+        gx00 = fract(gx00) - 0.5;
+        gy00 = fract(gy00) - 0.5;
+        gz00 = fract(gz00) - 0.5;
+        vec4 gw00 = vec4(0.75) - abs(gx00) - abs(gy00) - abs(gz00);
+        vec4 sw00 = step(gw00, vec4(0.0));
+        gx00 -= sw00 * (step(0.0, gx00) - 0.5);
+        gy00 -= sw00 * (step(0.0, gy00) - 0.5);
+
+        vec4 gx01 = ixy01 * (1.0 / 7.0);
+        vec4 gy01 = floor(gx01) * (1.0 / 7.0);
+        vec4 gz01 = floor(gy01) * (1.0 / 6.0);
+        gx01 = fract(gx01) - 0.5;
+        gy01 = fract(gy01) - 0.5;
+        gz01 = fract(gz01) - 0.5;
+        vec4 gw01 = vec4(0.75) - abs(gx01) - abs(gy01) - abs(gz01);
+        vec4 sw01 = step(gw01, vec4(0.0));
+        gx01 -= sw01 * (step(0.0, gx01) - 0.5);
+        gy01 -= sw01 * (step(0.0, gy01) - 0.5);
+
+        vec4 gx10 = ixy10 * (1.0 / 7.0);
+        vec4 gy10 = floor(gx10) * (1.0 / 7.0);
+        vec4 gz10 = floor(gy10) * (1.0 / 6.0);
+        gx10 = fract(gx10) - 0.5;
+        gy10 = fract(gy10) - 0.5;
+        gz10 = fract(gz10) - 0.5;
+        vec4 gw10 = vec4(0.75) - abs(gx10) - abs(gy10) - abs(gz10);
+        vec4 sw10 = step(gw10, vec4(0.0));
+        gx10 -= sw10 * (step(0.0, gx10) - 0.5);
+        gy10 -= sw10 * (step(0.0, gy10) - 0.5);
+
+        vec4 gx11 = ixy11 * (1.0 / 7.0);
+        vec4 gy11 = floor(gx11) * (1.0 / 7.0);
+        vec4 gz11 = floor(gy11) * (1.0 / 6.0);
+        gx11 = fract(gx11) - 0.5;
+        gy11 = fract(gy11) - 0.5;
+        gz11 = fract(gz11) - 0.5;
+        vec4 gw11 = vec4(0.75) - abs(gx11) - abs(gy11) - abs(gz11);
+        vec4 sw11 = step(gw11, vec4(0.0));
+        gx11 -= sw11 * (step(0.0, gx11) - 0.5);
+        gy11 -= sw11 * (step(0.0, gy11) - 0.5);
+
+        vec4 g0000 = vec4(gx00.x,gy00.x,gz00.x,gw00.x);
+        vec4 g1000 = vec4(gx00.y,gy00.y,gz00.y,gw00.y);
+        vec4 g0100 = vec4(gx00.z,gy00.z,gz00.z,gw00.z);
+        vec4 g1100 = vec4(gx00.w,gy00.w,gz00.w,gw00.w);
+        vec4 g0010 = vec4(gx10.x,gy10.x,gz10.x,gw10.x);
+        vec4 g1010 = vec4(gx10.y,gy10.y,gz10.y,gw10.y);
+        vec4 g0110 = vec4(gx10.z,gy10.z,gz10.z,gw10.z);
+        vec4 g1110 = vec4(gx10.w,gy10.w,gz10.w,gw10.w);
+        vec4 g0001 = vec4(gx01.x,gy01.x,gz01.x,gw01.x);
+        vec4 g1001 = vec4(gx01.y,gy01.y,gz01.y,gw01.y);
+        vec4 g0101 = vec4(gx01.z,gy01.z,gz01.z,gw01.z);
+        vec4 g1101 = vec4(gx01.w,gy01.w,gz01.w,gw01.w);
+        vec4 g0011 = vec4(gx11.x,gy11.x,gz11.x,gw11.x);
+        vec4 g1011 = vec4(gx11.y,gy11.y,gz11.y,gw11.y);
+        vec4 g0111 = vec4(gx11.z,gy11.z,gz11.z,gw11.z);
+        vec4 g1111 = vec4(gx11.w,gy11.w,gz11.w,gw11.w);
+
+        vec4 norm00 = taylorInvSqrt(vec4(dot(g0000, g0000), dot(g0100, g0100), dot(g1000, g1000), dot(g1100, g1100)));
+        g0000 *= norm00.x;
+        g0100 *= norm00.y;
+        g1000 *= norm00.z;
+        g1100 *= norm00.w;
+
+        vec4 norm01 = taylorInvSqrt(vec4(dot(g0001, g0001), dot(g0101, g0101), dot(g1001, g1001), dot(g1101, g1101)));
+        g0001 *= norm01.x;
+        g0101 *= norm01.y;
+        g1001 *= norm01.z;
+        g1101 *= norm01.w;
+
+        vec4 norm10 = taylorInvSqrt(vec4(dot(g0010, g0010), dot(g0110, g0110), dot(g1010, g1010), dot(g1110, g1110)));
+        g0010 *= norm10.x;
+        g0110 *= norm10.y;
+        g1010 *= norm10.z;
+        g1110 *= norm10.w;
+
+        vec4 norm11 = taylorInvSqrt(vec4(dot(g0011, g0011), dot(g0111, g0111), dot(g1011, g1011), dot(g1111, g1111)));
+        g0011 *= norm11.x;
+        g0111 *= norm11.y;
+        g1011 *= norm11.z;
+        g1111 *= norm11.w;
+
+        float n0000 = dot(g0000, Pf0);
+        float n1000 = dot(g1000, vec4(Pf1.x, Pf0.yzw));
+        float n0100 = dot(g0100, vec4(Pf0.x, Pf1.y, Pf0.zw));
+        float n1100 = dot(g1100, vec4(Pf1.xy, Pf0.zw));
+        float n0010 = dot(g0010, vec4(Pf0.xy, Pf1.z, Pf0.w));
+        float n1010 = dot(g1010, vec4(Pf1.x, Pf0.y, Pf1.z, Pf0.w));
+        float n0110 = dot(g0110, vec4(Pf0.x, Pf1.yz, Pf0.w));
+        float n1110 = dot(g1110, vec4(Pf1.xyz, Pf0.w));
+        float n0001 = dot(g0001, vec4(Pf0.xyz, Pf1.w));
+        float n1001 = dot(g1001, vec4(Pf1.x, Pf0.yz, Pf1.w));
+        float n0101 = dot(g0101, vec4(Pf0.x, Pf1.y, Pf0.z, Pf1.w));
+        float n1101 = dot(g1101, vec4(Pf1.xy, Pf0.z, Pf1.w));
+        float n0011 = dot(g0011, vec4(Pf0.xy, Pf1.zw));
+        float n1011 = dot(g1011, vec4(Pf1.x, Pf0.y, Pf1.zw));
+        float n0111 = dot(g0111, vec4(Pf0.x, Pf1.yzw));
+        float n1111 = dot(g1111, Pf1);
+
+        vec4 fade_xyzw = fade(Pf0);
+        vec4 n_0w = mix(vec4(n0000, n1000, n0100, n1100), vec4(n0001, n1001, n0101, n1101), fade_xyzw.w);
+        vec4 n_1w = mix(vec4(n0010, n1010, n0110, n1110), vec4(n0011, n1011, n0111, n1111), fade_xyzw.w);
+        vec4 n_zw = mix(n_0w, n_1w, fade_xyzw.z);
+        vec2 n_yzw = mix(n_zw.xy, n_zw.zw, fade_xyzw.y);
+        float n_xyzw = mix(n_yzw.x, n_yzw.y, fade_xyzw.x);
+        return 2.2 * n_xyzw;
+      }
+
+      // Classic Perlin noise, periodic version
+      float pnoise(vec4 P, vec4 rep)
+      {
+        vec4 Pi0 = mod(floor(P), rep); // Integer part modulo rep
+        vec4 Pi1 = mod(Pi0 + 1.0, rep); // Integer part + 1 mod rep
+        Pi0 = mod289(Pi0);
+        Pi1 = mod289(Pi1);
+        vec4 Pf0 = fract(P); // Fractional part for interpolation
+        vec4 Pf1 = Pf0 - 1.0; // Fractional part - 1.0
+        vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+        vec4 iy = vec4(Pi0.yy, Pi1.yy);
+        vec4 iz0 = vec4(Pi0.zzzz);
+        vec4 iz1 = vec4(Pi1.zzzz);
+        vec4 iw0 = vec4(Pi0.wwww);
+        vec4 iw1 = vec4(Pi1.wwww);
+
+        vec4 ixy = permute(permute(ix) + iy);
+        vec4 ixy0 = permute(ixy + iz0);
+        vec4 ixy1 = permute(ixy + iz1);
+        vec4 ixy00 = permute(ixy0 + iw0);
+        vec4 ixy01 = permute(ixy0 + iw1);
+        vec4 ixy10 = permute(ixy1 + iw0);
+        vec4 ixy11 = permute(ixy1 + iw1);
+
+        vec4 gx00 = ixy00 * (1.0 / 7.0);
+        vec4 gy00 = floor(gx00) * (1.0 / 7.0);
+        vec4 gz00 = floor(gy00) * (1.0 / 6.0);
+        gx00 = fract(gx00) - 0.5;
+        gy00 = fract(gy00) - 0.5;
+        gz00 = fract(gz00) - 0.5;
+        vec4 gw00 = vec4(0.75) - abs(gx00) - abs(gy00) - abs(gz00);
+        vec4 sw00 = step(gw00, vec4(0.0));
+        gx00 -= sw00 * (step(0.0, gx00) - 0.5);
+        gy00 -= sw00 * (step(0.0, gy00) - 0.5);
+
+        vec4 gx01 = ixy01 * (1.0 / 7.0);
+        vec4 gy01 = floor(gx01) * (1.0 / 7.0);
+        vec4 gz01 = floor(gy01) * (1.0 / 6.0);
+        gx01 = fract(gx01) - 0.5;
+        gy01 = fract(gy01) - 0.5;
+        gz01 = fract(gz01) - 0.5;
+        vec4 gw01 = vec4(0.75) - abs(gx01) - abs(gy01) - abs(gz01);
+        vec4 sw01 = step(gw01, vec4(0.0));
+        gx01 -= sw01 * (step(0.0, gx01) - 0.5);
+        gy01 -= sw01 * (step(0.0, gy01) - 0.5);
+
+        vec4 gx10 = ixy10 * (1.0 / 7.0);
+        vec4 gy10 = floor(gx10) * (1.0 / 7.0);
+        vec4 gz10 = floor(gy10) * (1.0 / 6.0);
+        gx10 = fract(gx10) - 0.5;
+        gy10 = fract(gy10) - 0.5;
+        gz10 = fract(gz10) - 0.5;
+        vec4 gw10 = vec4(0.75) - abs(gx10) - abs(gy10) - abs(gz10);
+        vec4 sw10 = step(gw10, vec4(0.0));
+        gx10 -= sw10 * (step(0.0, gx10) - 0.5);
+        gy10 -= sw10 * (step(0.0, gy10) - 0.5);
+
+        vec4 gx11 = ixy11 * (1.0 / 7.0);
+        vec4 gy11 = floor(gx11) * (1.0 / 7.0);
+        vec4 gz11 = floor(gy11) * (1.0 / 6.0);
+        gx11 = fract(gx11) - 0.5;
+        gy11 = fract(gy11) - 0.5;
+        gz11 = fract(gz11) - 0.5;
+        vec4 gw11 = vec4(0.75) - abs(gx11) - abs(gy11) - abs(gz11);
+        vec4 sw11 = step(gw11, vec4(0.0));
+        gx11 -= sw11 * (step(0.0, gx11) - 0.5);
+        gy11 -= sw11 * (step(0.0, gy11) - 0.5);
+
+        vec4 g0000 = vec4(gx00.x,gy00.x,gz00.x,gw00.x);
+        vec4 g1000 = vec4(gx00.y,gy00.y,gz00.y,gw00.y);
+        vec4 g0100 = vec4(gx00.z,gy00.z,gz00.z,gw00.z);
+        vec4 g1100 = vec4(gx00.w,gy00.w,gz00.w,gw00.w);
+        vec4 g0010 = vec4(gx10.x,gy10.x,gz10.x,gw10.x);
+        vec4 g1010 = vec4(gx10.y,gy10.y,gz10.y,gw10.y);
+        vec4 g0110 = vec4(gx10.z,gy10.z,gz10.z,gw10.z);
+        vec4 g1110 = vec4(gx10.w,gy10.w,gz10.w,gw10.w);
+        vec4 g0001 = vec4(gx01.x,gy01.x,gz01.x,gw01.x);
+        vec4 g1001 = vec4(gx01.y,gy01.y,gz01.y,gw01.y);
+        vec4 g0101 = vec4(gx01.z,gy01.z,gz01.z,gw01.z);
+        vec4 g1101 = vec4(gx01.w,gy01.w,gz01.w,gw01.w);
+        vec4 g0011 = vec4(gx11.x,gy11.x,gz11.x,gw11.x);
+        vec4 g1011 = vec4(gx11.y,gy11.y,gz11.y,gw11.y);
+        vec4 g0111 = vec4(gx11.z,gy11.z,gz11.z,gw11.z);
+        vec4 g1111 = vec4(gx11.w,gy11.w,gz11.w,gw11.w);
+
+        vec4 norm00 = taylorInvSqrt(vec4(dot(g0000, g0000), dot(g0100, g0100), dot(g1000, g1000), dot(g1100, g1100)));
+        g0000 *= norm00.x;
+        g0100 *= norm00.y;
+        g1000 *= norm00.z;
+        g1100 *= norm00.w;
+
+        vec4 norm01 = taylorInvSqrt(vec4(dot(g0001, g0001), dot(g0101, g0101), dot(g1001, g1001), dot(g1101, g1101)));
+        g0001 *= norm01.x;
+        g0101 *= norm01.y;
+        g1001 *= norm01.z;
+        g1101 *= norm01.w;
+
+        vec4 norm10 = taylorInvSqrt(vec4(dot(g0010, g0010), dot(g0110, g0110), dot(g1010, g1010), dot(g1110, g1110)));
+        g0010 *= norm10.x;
+        g0110 *= norm10.y;
+        g1010 *= norm10.z;
+        g1110 *= norm10.w;
+
+        vec4 norm11 = taylorInvSqrt(vec4(dot(g0011, g0011), dot(g0111, g0111), dot(g1011, g1011), dot(g1111, g1111)));
+        g0011 *= norm11.x;
+        g0111 *= norm11.y;
+        g1011 *= norm11.z;
+        g1111 *= norm11.w;
+
+        float n0000 = dot(g0000, Pf0);
+        float n1000 = dot(g1000, vec4(Pf1.x, Pf0.yzw));
+        float n0100 = dot(g0100, vec4(Pf0.x, Pf1.y, Pf0.zw));
+        float n1100 = dot(g1100, vec4(Pf1.xy, Pf0.zw));
+        float n0010 = dot(g0010, vec4(Pf0.xy, Pf1.z, Pf0.w));
+        float n1010 = dot(g1010, vec4(Pf1.x, Pf0.y, Pf1.z, Pf0.w));
+        float n0110 = dot(g0110, vec4(Pf0.x, Pf1.yz, Pf0.w));
+        float n1110 = dot(g1110, vec4(Pf1.xyz, Pf0.w));
+        float n0001 = dot(g0001, vec4(Pf0.xyz, Pf1.w));
+        float n1001 = dot(g1001, vec4(Pf1.x, Pf0.yz, Pf1.w));
+        float n0101 = dot(g0101, vec4(Pf0.x, Pf1.y, Pf0.z, Pf1.w));
+        float n1101 = dot(g1101, vec4(Pf1.xy, Pf0.z, Pf1.w));
+        float n0011 = dot(g0011, vec4(Pf0.xy, Pf1.zw));
+        float n1011 = dot(g1011, vec4(Pf1.x, Pf0.y, Pf1.zw));
+        float n0111 = dot(g0111, vec4(Pf0.x, Pf1.yzw));
+        float n1111 = dot(g1111, Pf1);
+
+        vec4 fade_xyzw = fade(Pf0);
+        vec4 n_0w = mix(vec4(n0000, n1000, n0100, n1100), vec4(n0001, n1001, n0101, n1101), fade_xyzw.w);
+        vec4 n_1w = mix(vec4(n0010, n1010, n0110, n1110), vec4(n0011, n1011, n0111, n1111), fade_xyzw.w);
+        vec4 n_zw = mix(n_0w, n_1w, fade_xyzw.z);
+        vec2 n_yzw = mix(n_zw.xy, n_zw.zw, fade_xyzw.y);
+        float n_xyzw = mix(n_yzw.x, n_yzw.y, fade_xyzw.x);
+        return 2.2 * n_xyzw;
+      }
+
+      float noise(vec3 p) {
+        return 0.5 * cnoise(vec4(p, 0)) + 0.5;
+      }
+      
+      float nebula(vec3 p) {
+          const int steps = 6;
+          float scale = pow(2.0, float(steps));
+          vec3 displace = vec3(.0);
+          for (int i = 0; i < steps; i++) {
+              displace = vec3(
+                  noise(p.xyz * scale + displace),
+                  noise(p.yzx * scale + displace),
+                  noise(p.zxy * scale + displace)
+              );
+              scale *= 0.5;
+          }
+          return noise(p * scale + displace);
+      }
+      
+      void main() {
+        vec3 posn = normalize(pos) * uScale;
+        float c = min(1.0, nebula(posn + uOffset) * uIntensity);
+        c = pow(c, uFalloff);
+        gl_FragColor = vec4(uColor , c);
+      
+      }
+  </script>
+
+  <script type="x-shader/x-fragment" id="StarFragment">
+    #define mainImage(o,i)  o+=90.*fract(dot(sin(i),i))-89.-o
+    void main(){	
+      vec2 x=gl_FragCoord.xy;
+      vec3 a=vec3(max((fract(dot(cos(x),x))-.99)*90.,.0));
+      gl_FragColor=vec4(a,1.);
+    }
+  </script>
+
+<script type="module">
+    import {
+        WebGLRenderTarget, LinearFilter, RGBAFormat, Object3D, Scene, PerspectiveCamera, Vector3, Color, BufferGeometry,
+        BufferAttribute, PointsMaterial, Mesh, VertexColors, Points, MeshBasicMaterial, DoubleSide, BoxBufferGeometry,
+        WebGLRenderer, SphereBufferGeometry, ShaderMaterial, Matrix4,
+        AdditiveBlending, Float32BufferAttribute, Vector2, Raycaster,
+        LuminanceFormat, UnsignedByteType, DataTexture, TextureLoader,
+        BoxGeometry, MeshPhongMaterial
+      } from '../node_modules/three/build/three.module.js' 
+
+      // --------------------------------------------------------------------------
+      // texture generation
+      var colorMat = [
+    new MeshBasicMaterial({color:"white", side:DoubleSide}), //right
+    new MeshBasicMaterial({color:"green", side:DoubleSide}),  //left
+    new MeshBasicMaterial({color:"blue", side:DoubleSide}),   //up
+    new MeshBasicMaterial({color:"red", side:DoubleSide}),    //down
+    new MeshBasicMaterial({color:"purple", side:DoubleSide}),  //back
+    new MeshBasicMaterial({color:"yellow", side:DoubleSide})  //front
+  ];
+
+      let nebPos = [
+        -1, -1, -1,
+         1, -1, -1,
+         1,  1, -1,
+        -1, -1, -1,
+         1,  1, -1,
+        -1,  1, -1,
+
+         1, -1,  1,
+        -1, -1,  1,
+        -1,  1,  1,
+         1, -1,  1,
+        -1,  1,  1,
+         1,  1,  1,
+
+         1, -1, -1,
+         1, -1,  1,
+         1,  1,  1,
+         1, -1, -1,
+         1,  1,  1,
+         1,  1, -1,
+
+        -1, -1,  1,
+        -1, -1, -1,
+        -1,  1, -1,
+        -1, -1,  1,
+        -1,  1, -1,
+        -1,  1,  1,
+
+        -1,  1, -1,
+         1,  1, -1,
+         1,  1,  1,
+        -1,  1, -1,
+         1,  1,  1,
+        -1,  1,  1,
+
+        -1, -1,  1,
+         1, -1,  1,
+         1, -1, -1,
+        -1, -1,  1,
+         1, -1, -1,
+        -1, -1, -1
+    ]
+  
+
+
+      let views = [
+        { t: [ 1, 0, 0 ], u: [ 0, 1, 0 ] },             //right
+        { t: [ -1, 0,0  ], u: [ 0, 1, 0 ] },           //left
+        { t: [ 0, - 1, 0 ], u: [ 0, 1, 0 ] },         //down
+        { t: [ 0, 1, 0 ], u: [ 0, 1, 0 ] },             //up
+ 
+        { t: [ 0, 0, 1 ], u: [ 0, 1, 0 ] },             //back
+        { t: [ 0, 0, - 1 ], u: [ 0, 1, 0 ] },           //front
+      ];
+
+      let dir = {
+        right: 0,
+        left: 1,
+        up: 2,
+        down: 3,
+        back: 4,
+        front: 5
+
+      }
+/*
+      let views = [
+        { t: [ 0, 0, -1 ], u: [ 0, 1, 0 ] },
+        { t: [ 0, 0, 1 ], u: [ 0, 1, 0 ] },
+        { t: [ -1, 0, 0 ], u: [ 0, 1, 0 ] },
+        { t: [ 1, 0, 0 ], u: [ 0, 1, 0 ] },
+        { t: [ 0, 1, 0 ], u: [ 0, 0, 1 ] },
+        { t: [ 0, -1, 0 ], u: [ 0, 0, -1 ] },
+      ];
+      */
+      let LeftUV = [new Vector2(0, .333), new Vector2(.25, .333), new Vector2(.25, .666), new Vector2(0, .666)]
+      let FrontUV = [new Vector2(.25, .333), new Vector2(.5, .333), new Vector2(.5, .666), new Vector2(.25, .666)]
+      let RightUV = [new Vector2(.5, .333), new Vector2(.75, .333), new Vector2(.75, .666), new Vector2(.5, .666)]
+      let BackUV = [new Vector2(.75, .333), new Vector2(1., .333), new Vector2(1., .666), new Vector2(.75, .666)]
+      let UpUV = [new Vector2(.25, .666), new Vector2(.5, .666), new Vector2(.5, 1.), new Vector2(.25, 1.)]
+      let DownUV = [new Vector2(.25, 0.), new Vector2(.5, 0.), new Vector2(.5, .333), new Vector2(.25, .333)]
+      let mapUV = [new Vector2(.0, .0), new Vector2(1., .0), new Vector2(1., 1.), new Vector2(.0, 1.)]
+  
+      var uniforms = {
+        u_time: {value: 0.5},
+        u_resolution: {value: new Vector2(window.innerWidth, window.innerHeight)},
+        u_mouse: {value: new Vector2(window.innerHeight, window.innerWidth)},
+        uModel: {value: new Matrix4()},
+        uView: {value: new Matrix4()},
+        uProjection: {value: new Matrix4()},
+        uScale: {value: 0.7344317968236282},  //how far the nebula zoom
+          uColor: {value: new Vector3(0.0392, 0.3647, 0.6314)},
+          //uColor:{value: new Vector3(0, 1, 1)},
+          uIntensity: {value: 0.9505245321895928},                    //how opaque nebula will be
+          uFalloff: {value: 1.975},                   //governs how quikly that intensity varies from zero to one
+          //uOffset: {value: [Math.random()*2000 - 1000 , Math.random()*2000 - 1000, Math.random()*2000 - 1000]},                  //shift nebula, prevent overlap
+          uOffset: {value: [578.3161600120366,-34.933149348944426,-287.80164290219545]},
+          uPosition: {value: new Vector3(Math.random()* 0.01, Math.random() * 0.01, Math.random()*0.01)},
+          uSize:{value: 0.15}
+
+        //uViews:{value: new Matrix4(1, 0, 0, 0, ..)}
+      }
+
+      
+      //test multiple plane projectionMatrix
+      let multiMapMaterialTest = new ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: document.getElementById('Vertex').textContent,
+        fragmentShader: document.getElementById('NebulaFragment').textContent,
+        side: DoubleSide
+      })
+
+      let starMaterial = new ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: document.getElementById('Vertex').textContent,
+        fragmentShader: document.getElementById('StarFragment').textContent,
+        side: DoubleSide
+      })
+
+      
+  
+      const RESOLUTION = 1024
+      let bufferTargetArray = []
+      let starBufTarArr = []
+  for (let i=0;i<6;++i) {
+    let bufferTarget = new WebGLRenderTarget(RESOLUTION, RESOLUTION,
+      {
+        minFilter: LinearFilter,
+        magFilter: LinearFilter,
+        format: RGBAFormat
+      })
+    bufferTarget.setSize(RESOLUTION, RESOLUTION)
+    bufferTargetArray.push(bufferTarget)
+    starBufTarArr.push(bufferTarget)
+  }
+  
+      let starBufferTarget = new WebGLRenderTarget(RESOLUTION, RESOLUTION,{
+        minFilter: LinearFilter,
+        magFilter: LinearFilter,
+        format: RGBAFormat
+      })
+      starBufferTarget.setSize(RESOLUTION, RESOLUTION)
+      let nebulaBufferTarget = new WebGLRenderTarget(RESOLUTION, RESOLUTION,{
+        minFilter: LinearFilter,
+        magFilter: LinearFilter,
+        format: RGBAFormat
+      })
+      starBufferTarget.setSize(RESOLUTION, RESOLUTION)
+      /*var bufferTarget = new WebGLRenderTarget(RESOLUTION, RESOLUTION,
+        {
+          minFilter: LinearFilter,
+          magFilter: LinearFilter,
+          format: RGBAFormat
+        })
+      bufferTarget.setSize(RESOLUTION, RESOLUTION)*/
+
+      var scene = new Scene()
+      // renderer = window.__renderer
+      // renderer.clear()
+      // var renderer = window.__renderer // new WebGLRenderer()
+      // renderer.setSize(RESOLUTION, RESOLUTION)
+  
+      var camera = new PerspectiveCamera(90, 1, .1, 10000) //fov, aspect, near, far, zoom = 1
+      let tCamera = new PerspectiveCamera(Math.PI/2, 1.0, 0.1, 256)
+      function multiMapTexture({
+        NSTARS, // = 10000,
+        radius, // = 200,
+        transparent, // = false,
+        opacity,
+        ifStar
+      } = {}){
+        let currRenderTarget
+        let geometry = new BufferGeometry(), starGeometry = new BufferGeometry()
+        let spaceSys
+      var positions = [];
+      for ( var i = 0; i < NSTARS; i ++ ) {
+        positions.push( ( Math.random() * 2 - 1 ) * radius );
+        positions.push( ( Math.random() * 2 - 1 ) * radius );
+        positions.push( ( Math.random() * 2 - 1 ) * radius );
+      }
+      //geometry.addAttribute( 'position', new Float32BufferAttribute( positions, 3 ) )
+      geometry.addAttribute('position', new Float32BufferAttribute(nebPos, 3))
+      //starGeometry.addAttribute( 'position', new Float32BufferAttribute( positions, 3 ) )
+      /*if(ifStar){
+        spaceSys = new Mesh(geometry, starMaterial)
+        currRenderTarget = starBufTarArr
+      }else{
+        spaceSys = new Mesh(geometry, multiMapMaterialTest)
+        currRenderTarget = bufferTargetArray
+      }*/
+      //spaceSys = new Mesh(geometry, multiMapMaterialTest)
+      spaceSys = new Mesh(geometry, multiMapMaterialTest)
+      //currRenderTarget = bufferTargetArray
+      
+
+      //currRenderTarget = nebulaBufferTarget
+      
+      
+      scene.add( spaceSys );
+      //scene.add(starSys)
+      
+      let renderer = window.__renderer
+    // keep old states
+    // let originalClearColor = renderer.getClearColor()
+    // let originalClearAlpha = renderer.getClearAlpha()
+  
+    /*let near = 1.,
+        top = near * Math.tan(Math.PI / 180 * 0.5 * 40),
+        height = 2 * top,
+        width = height,
+        left = -0.5 * width
+  
+  
+    let proMat = new Matrix4()
+  
+    multiMapMaterialTest.uniforms.uProjection.value = proMat.makePerspective(left, left + width, top, top - height, near, 10000)*/
+  
+    //proMat.makePerspective(left, left + width, top, top - height, near, 10000)
+    //console.log(proMat)
+    
+    for (let i=0;i<6;++i) {
+      camera.matrixWorldNeedsUpdate = true
+      let v = views[ i ];
+
+      tCamera.position.set(0,0,0)
+    tCamera.up.set(v.u[0], v.u[1], v.u[2])
+    //tCamera.up = new Vector3(v.u[0], v.u[1], v.u[2])
+    tCamera.lookAt(v.t[0], v.t[1], v.t[2])
+
+    tCamera.updateProjectionMatrix ()
+
+    camera.position.set(0,0,0)
+    camera.up.set(v.u[0], v.u[1], v.u[2])
+    //camera.up = new Vector3(v.u[0], v.u[1], v.u[2])
+    camera.lookAt(v.t[0], v.t[1], v.t[2])
+
+    camera.updateProjectionMatrix ()
+  
+      /*let viewMat = new Matrix4();
+      //onlyNebulaMaterial.uniforms.u_mouse.value.x += RESOLUTION*2*50000
+      //onlyNebulaMaterial.uniforms.u_mouse.value.y += RESOLUTION*2*100000
+  
+      let eye = new Vector3(0, 0, 0),
+          target = new Vector3(v.t[0], v.t[1], v.t[2]),
+          up = new Vector3(v.u[0], v.u[1], v.u[2])
+  
+      multiMapMaterialTest.uniforms.uView.value = viewMat.lookAt(eye, target, up)*/
+      //viewMat.lookAt(eye, target, up)
+      //console.log(viewMat)
+  
+      //console.log(multiMapMaterialTest.uniforms)
+  
+      /*camera.position.set(0,0,0)
+      camera.up.set(v.u[0], v.u[1], v.u[2])
+      //camera.up = new Vector3(v.u[0], v.u[1], v.u[2])
+      camera.lookAt(v.t[0], v.t[1], v.t[2])
+  
+      camera.updateProjectionMatrix ()*/
+  
+      //console.log(camera)
+      //console.log(camera)
+  
+      //scene.updateMatrixWorld()
+    
+      //console.log(v)
+
+      //console.log(currRenderTarget)
+    
+      // renderer.setClearColor(new Color(0x030303), (transparent) ? opacity : 1)
+      renderer.clearColor(0, 0, 0, (transparent) ? opacity : 1)
+      // magic code: https://stackoverflow.com/questions/38583219/three-js-render-to-texture
+      renderer.setRenderTarget(bufferTargetArray[i])
+      renderer.render(scene, camera, bufferTargetArray[i], false)
+      renderer.setRenderTarget(null)  
+    }
+  
+    let tex = bufferTargetArray.map((target) => {
+      let testBuffer = new Uint8Array(4 * RESOLUTION * RESOLUTION)
+      renderer.readRenderTargetPixels(target, 0, 0, RESOLUTION, RESOLUTION, testBuffer)
+      return {tex: target.texture, data:testBuffer }
+    })
+
+
+    //cited from https://stackoverflow.com/questions/8191083/can-one-easily-create-an-html-image-element-from-a-webgl-texture-object/18804083#18804083
+
+    tex.map((texture, i)=>{
+      let a = RESOLUTION
+      let canvas
+      switch(i){
+        case dir.left:
+          canvas = document.getElementById("texture-left")
+          break
+        case dir.right:
+          canvas = document.getElementById("texture-right")
+          break
+        case dir.up: 
+          canvas = document.getElementById("texture-top")
+          break
+        case dir.down: 
+          canvas = document.getElementById("texture-bottom")
+          break
+        case dir.front: 
+          canvas = document.getElementById("texture-front")
+          break
+        case dir.back: 
+          canvas = document.getElementById("texture-back")
+          break
+      }
+      canvas.width = RESOLUTION;
+      canvas.height = RESOLUTION;
+      var ctx = canvas.getContext('2d');
+      let img = ctx.createImageData(RESOLUTION, RESOLUTION)
+      img.data.set(texture.data)
+      //console.log(texture.data)
+      ctx.putImageData(img, 0, 0)
+      ctx.globalCompositeOperation = 'copy'
+      ctx.drawImage(canvas, 0, 0, img.width, img.height, 0, 0, canvas.width, canvas.height)
+    })
+
+    scene.remove(spaceSys)
+    //scene.remove(nebulaSys)
+    //
+    // scene.dispose()
+    return tex
+      }
+
+      //single material
+      
+      function testTexure({
+  NSTARS, // = 10000,
+  radius, // = 200,
+  transparent, // = false,
+  opacity,
+  ifStar,
+  closeStar
+} = {}){
+  let baseColor = {h:0.5, s:0.7, l:0.5}
+  let currRenderTarget
+  let geometry = new BufferGeometry();
+  let particleSystem
+  var positions = [];
+  let colors = new Float32Array(3 * NSTARS)
+  let color = new Color(0xffffff)
+  for ( var i = 0; i < NSTARS; i ++ ) {
+    positions.push( ( Math.random() * 2 - 1 ) * radius );
+    positions.push( ( Math.random() * 2 - 1 ) * radius );
+    positions.push( ( Math.random() * 2 - 1 ) * radius );
+
+    //color.setHSL(baseColor.h + 0.2 * (i / NSTARS), baseColor.s, baseColor.l)
+    color.toArray(colors, i * 3)
+  }
+  geometry.addAttribute( 'position', new Float32BufferAttribute( positions, 3 ) )
+  geometry.addAttribute('aColor', new Float32BufferAttribute(colors, 3))
+    particleSystem = new Mesh(geometry, starMaterial)
+    currRenderTarget = starBufferTarget
+
+
+  scene.add( particleSystem );
+
+  let renderer = window.__renderer
+
+  renderer.clearColor(0, 0, 0, (transparent) ? opacity : 1)
+  // magic code: https://stackoverflow.com/questions/38583219/three-js-render-to-texture
+  renderer.setRenderTarget(currRenderTarget)
+  renderer.render(scene, camera, currRenderTarget, false)
+  renderer.setRenderTarget(null)
+
+  let tex = currRenderTarget.texture
+
+  scene.remove(particleSystem)
+  // scene.dispose()
+  return tex
+}
+      // --------------------------------------------------------------------------
+      // skybox definition
+      const MAJOR_AXIS = 6378137
+      let RADIUS = MAJOR_AXIS
+      class SkyBox extends Object3D {
+        constructor ({
+          parent
+        }) {
+          super()
+          parent.add(this)
+          this.name = 'SkyBox'
+          //console.log(this)
+  
+          this.addBox({
+            BOXSIZE: MAJOR_AXIS * 7,
+            radius: 200,
+            NSTARS: 1000,
+            opacity: 0.9,
+        transparent: true,
+            ifStar: true
+          })
+
+          this.addBox({
+            BOXSIZE: MAJOR_AXIS * 8,
+            radius: 200,
+            NSTARS: 10000,
+            opacity: 0.9,
+        transparent: true,
+            ifStar: false
+          })
+          
+        }
+  
+        addBox ({
+          BOXSIZE,
+          radius,
+          NSTARS,
+          // showPoints = false,
+          transparent = true,
+          opacity,
+          ifStar
+        } = {}) {
+          //let materials
+          let starTexture
+          let multiMapTex = multiMapTexture({
+            NSTARS,
+            radius,
+            transparent,
+            opacity,
+            ifStar
+          })
+          if(ifStar){
+            starTexture = testTexure({
+              NSTARS,
+            radius,
+            transparent,
+            opacity,
+            ifStar
+            })
+          }
+          //console.log("tTex")
+          //console.log(tTex)
+          //materials = tTex.map((texture, i) => {
+       // return new MeshBasicMaterial({ side: DoubleSide, map: texture, transparent: true})
+      //})
+  
+          //let finTex = tTex[0]
+  
+      //var Imgmaterial = new MeshBasicMaterial( { map: new TextureLoader().load('../ExternalImg/sky.jpg'), side:DoubleSide, transparent: true } );
+        let multiMatetials = multiMapTex.map((texture, i) => {
+          return new MeshBasicMaterial({ side: DoubleSide, map: texture.tex, transparent: true, opacity: opacity, depthWrite: false})
+        })
+  
+          let mapMaterials = new MeshBasicMaterial({
+            map: starTexture,
+            opacity: opacity,
+            transparent: true,
+            side: DoubleSide,
+            depthWrite: false
+          })
+          // } else {
+            // material = new MeshBasicMaterial({ color: 0xff0000, side: DoubleSide, wireframe: true, transparent: true, opacity: 0.3 })
+          // }
+            //console.log(materials)
+          let multiPlaneMapGeo = new BoxGeometry(BOXSIZE, BOXSIZE, BOXSIZE)
+          let singleMapGeo = new BoxBufferGeometry(BOXSIZE, BOXSIZE, BOXSIZE)
+  
+          //console.log(geometry)
+          //let testGeo = new BoxBufferGeometry(BOXSIZE, BOXSIZE, BOXSIZE)
+            
+          let testGeo = new BoxGeometry(BOXSIZE, BOXSIZE, BOXSIZE)
+
+          testGeo.uvsNeedUpdate = true
+
+          testGeo.faceVertexUvs[0] = []
+
+          //right
+          testGeo.faceVertexUvs[0][0] = [mapUV[1], mapUV[2], mapUV[0]]
+          testGeo.faceVertexUvs[0][1] = [mapUV[2], mapUV[3], mapUV[0]]
+          //left
+          testGeo.faceVertexUvs[0][2] = [mapUV[1], mapUV[2], mapUV[0]]
+          testGeo.faceVertexUvs[0][3] = [mapUV[2], mapUV[3], mapUV[0]]
+          //up
+          testGeo.faceVertexUvs[0][4] = [mapUV[3], mapUV[0], mapUV[2]]
+          testGeo.faceVertexUvs[0][5] = [mapUV[0], mapUV[1], mapUV[2]]
+          //down
+          testGeo.faceVertexUvs[0][6] = [mapUV[3], mapUV[0], mapUV[2]]
+          testGeo.faceVertexUvs[0][7] = [mapUV[0], mapUV[1], mapUV[2]]
+          //back
+          testGeo.faceVertexUvs[0][8] = [mapUV[1], mapUV[2], mapUV[0]]
+          testGeo.faceVertexUvs[0][9] = [mapUV[2], mapUV[3], mapUV[0]]
+          //front
+          testGeo.faceVertexUvs[0][10] = [mapUV[1], mapUV[2], mapUV[0]]
+          testGeo.faceVertexUvs[0][11] = [mapUV[2], mapUV[3], mapUV[0]]
+          //begin uv mapping
+  
+          /*multiPlaneMapGeo.faceVertexUvs[0] = []
+            //right
+          multiPlaneMapGeo.faceVertexUvs[0][0] = [RightUV[3], RightUV[0], RightUV[2]]
+          multiPlaneMapGeo.faceVertexUvs[0][1] = [RightUV[0], RightUV[1], RightUV[2]]
+          //left
+          multiPlaneMapGeo.faceVertexUvs[0][2] = [LeftUV[3], LeftUV[0], LeftUV[2]]
+          multiPlaneMapGeo.faceVertexUvs[0][3] = [LeftUV[0], LeftUV[1], LeftUV[2]]
+          //up
+          multiPlaneMapGeo.faceVertexUvs[0][4] = [UpUV[3], UpUV[0], UpUV[2]]
+          multiPlaneMapGeo.faceVertexUvs[0][5] = [UpUV[0], UpUV[1], UpUV[2]]
+          //down
+          multiPlaneMapGeo.faceVertexUvs[0][6] = [DownUV[2], DownUV[3], DownUV[1]]
+          multiPlaneMapGeo.faceVertexUvs[0][7] = [DownUV[3], DownUV[0], DownUV[1]]
+          //front
+          multiPlaneMapGeo.faceVertexUvs[0][8] = [FrontUV[3], FrontUV[0], FrontUV[2]]
+          multiPlaneMapGeo.faceVertexUvs[0][9] = [FrontUV[0], FrontUV[1], FrontUV[2]]
+          //back
+          multiPlaneMapGeo.faceVertexUvs[0][10] = [BackUV[3], BackUV[0], BackUV[2]]
+          multiPlaneMapGeo.faceVertexUvs[0][11] = [BackUV[0], BackUV[1], BackUV[2]]
+          */
+          let newcube = new Mesh(testGeo, multiMatetials)
+          let cube = new Mesh(singleMapGeo, mapMaterials)
+          let testcube = new Mesh(singleMapGeo, multiMatetials)
+          // this.cube.scale.set(BOXSIZE, BOXSIZE, BOXSIZE)
+          //let mapCube = new Mesh(multiPlaneMapGeo, mapMaterials)
+  
+          //console.log(mapMaterials)
+          if(ifStar){
+            this.add(cube)
+          }else{
+            this.add(newcube)
+          }
+            
+            //return mapCube
+        }
+      }
+  
+  
+  
+  
+      // --------------------------------------------------------------------------
+      // main scene setup
+      var mainScene = new Scene()
+      var mainCamera = new PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1 * RADIUS, 100 * RADIUS )
+  
+      //window.addEventListener('mousemove', onMouseMove, false);
+  
+      var renderer = new WebGLRenderer()
+      window.__renderer = renderer
+      renderer.setSize( window.innerWidth, window.innerHeight )
+      // renderer.setClearColor(new Color(0xffffff))
+      document.body.appendChild( renderer.domElement )
+  
+      var geometry = new SphereBufferGeometry( RADIUS, 32, 32 )
+      var material = new MeshBasicMaterial( { color: 0x888888, wireframe: true } )
+      var sphere = new Mesh( geometry, material )
+      sphere.position.z = -2 * RADIUS
+      //mainScene.add( sphere )
+  
+      /*document.onmousemove = function(e){
+        uniforms.u_mouse.value.x = e.pageX
+        uniforms.u_mouse.value.y = e.pageY
+      }*/
+  
+      // mainCamera.position.y = 2 * RADIUS
+      // mainCamera.lookAt(new Vector3(0,0,0))
+      // console.log(mainCamera)
+  
+      let skybox, skybox2
+      function addBox() {
+        skybox = new SkyBox({parent: mainScene})
+        skybox.position.z = -2 * RADIUS 
+      }
+  
+      var animate = function () {
+       
+        //onlyNebulaMaterial.uniforms.u_time.value += 0.01;
+        //uniforms.u_time.value.needsUpdate = true;
+        //uniforms.u_time.value = Math.random();
+  
+        //console.log(uniforms.uModel.value)
+  
+        requestAnimationFrame( animate )
+  
+        if (skybox) {
+          skybox.rotation.x += 0.002
+          skybox.rotation.y += 0.002
+        }
+        
+        //sphere.rotation.x += 0.001
+        //sphere.rotation.y += 0.001
+  
+        //uniforms.u_mouse.value.x += 3
+        //uniforms.u_mouse.value.y += 5
+  
+        renderer.render( mainScene, mainCamera )
+      }
+  
+      animate()
+      addBox()
+  </script>
+</body>
+
+</html>
